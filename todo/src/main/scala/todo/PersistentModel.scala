@@ -69,6 +69,9 @@ object PersistentModel extends Model:
   def saveTasks(tasks: Tasks): Unit =
     save(tasksPath, tasks)
 
+  def saveTaskMap(tm: Map[Id,Task]): Unit =
+    saveTasks(Tasks(tm))
+
   /**
    * Save Id to a file. If the file already exists it is overwritten.
    */
@@ -95,28 +98,44 @@ object PersistentModel extends Model:
    * (The InMemoryModel uses the same.)
    */
 
-  def create(task: Task): Id = ???
+  def create(task: Task): Id =
+    val id = loadId()
+    saveId(id.next)
+    val ts = tasks.toMap
+    saveTaskMap(ts ++ Map(id -> task))
+    id
 
   def read(id: Id): Option[Task] =
-    ???
+    tasks.toMap.get(id)
 
   def update(id: Id)(f: Task => Task): Option[Task] =
-    ???
+    val ts = tasks.toMap
+    ts.get(id) match
+      case Some(current) =>
+        val updated = f(current)
+        saveTaskMap(ts ++ Map(id -> updated))
+        new Some(updated)
+      case None =>
+        None
 
   def delete(id: Id): Boolean =
-    ???
+    val ts = tasks.toMap
+    val result = ts.contains(id)
+    saveTaskMap(ts - id)
+    result
 
   def tasks: Tasks =
-    ???
+    loadTasks()
 
   def tasks(tag: Tag): Tasks =
-    ???
+    val tagged = tasks.toList.filter(_._2.tags.contains(tag))
+    Tasks(tagged)
 
   def complete(id: Id): Option[Task] =
-    ???
+    update(id)(_.complete)
 
   def tags: Tags =
-    ???
+    val uniqueTags = tasks.toList.map(_._2).flatMap(_.tags).toSet
+    Tags(uniqueTags.toList)
 
-  def clear(): Unit =
-    ???
+  def clear(): Unit = saveTasks(Tasks.empty)

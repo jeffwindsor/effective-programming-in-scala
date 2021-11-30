@@ -55,10 +55,12 @@ object InMemoryModel extends Model:
     Tasks(idStore)
 
   def tags: Tags =
-    Tags(List.empty)
+    val uniqueTags = tasks.toList.map(_._2).flatMap(_.tags).toSet
+    Tags(uniqueTags.toList)
 
   def tasks(tag: Tag): Tasks =
-    Tasks(idStore)
+    val tagged = tasks.toList.filter(_._2.tags.contains(tag))
+    Tasks(tagged)
 
   def clear(): Unit =
     idStore.clear()
