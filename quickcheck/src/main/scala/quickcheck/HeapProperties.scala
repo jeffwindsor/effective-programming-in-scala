@@ -43,8 +43,10 @@ trait HeapProperties(val heapInterface: HeapInterface):
       findMin(updatedHeap) == min
     }
 
+  //SHOULD FAIL: List(Node(1207187240,0,List()), Node(667182096,1,List(Node(2147483647,0,List()))))
   val deleteAllProducesSortedList: (String, Prop) =
     // recursively traverse the heap
+    @tailrec
     def check(heap: List[Node]): Boolean =
       // if the heap is empty, or if it has just one element, we have
       // successfully finished our checks
@@ -52,16 +54,17 @@ trait HeapProperties(val heapInterface: HeapInterface):
         true
       else
         // find the minimal element
-        val x1: Int = findMin(heap)
+        val x1 = findMin(heap)
         // delete the minimal element of `heap`
-        val heap2: List[Node] = deleteMin(heap)
+        val heap2 = deleteMin(heap)
         // find the minimal element in `heap2`
-        val x2: Int = findMin(heap2)
+        val x2 = findMin(heap2)
         // check that the deleted element is less than or equal to the
         // minimal element of the remaining heap, and that the remaining
         // heap verifies the same property (by recursively calling `check`)
-        val checked: Boolean = (x2 <= x1)
-        checked
+        if x1 <= x2 then check(heap2)
+        else false
+
     // check arbitrary heaps
     "continually finding and deleting the minimal element of a heap should return a sorted sequence" ->
     forAll { (heap: List[Node]) =>
@@ -74,28 +77,27 @@ trait HeapProperties(val heapInterface: HeapInterface):
       // create two heaps:
       // - the first has two duplicate elements inserted, where both are equal to the
       //   highest value among `x` and `y`
-      val min = if x < y then x else y
-      val max = if x > y then x else y
+      val minXY = x min y
+      val maxXY = x max y
+      val minHeap = insert(minXY, insert(minXY, empty))
+      val maxHeap = insert(maxXY, insert(maxXY, empty))
       // - the second also has two duplicate elements insterted, where both are equal
       //   to the lowest value among `x` and `y`
       // finally, meld both heaps.
-      val meldedHeap: List[Node] =
-        val minHeap = insert(min, insert(min, empty))
-        val maxHeap = insert(max, insert(max, empty))
-        meld(maxHeap, minHeap)
+      val meldedHeap: List[Node] =  meld(maxHeap, minHeap)
 
       // check that deleting the minimal element twice in a row from the melded heap,
       // and then finding the minimal element in the resulting heap returns the
       // highest value
       val deleteTwoMinAndFindMin: Boolean =
         val deleteTwoHeap = deleteMin(deleteMin(meldedHeap))
-        min == findMin(deleteTwoHeap)
+        maxXY == findMin(deleteTwoHeap)
 
       // check that inserting the lowest value to the melded heap, and then
       // finding the minimal element returns the lowest value
       val insertMinAndFindMin: Boolean =
-        val insertedHeap = insert(min, meldedHeap)
-        min == findMin(insertedHeap)
+        val insertedHeap = insert(minXY, meldedHeap)
+        minXY == findMin(insertedHeap)
 
       // check that both conditions are fulfilled
       deleteTwoMinAndFindMin && insertMinAndFindMin
@@ -132,8 +134,8 @@ trait HeapProperties(val heapInterface: HeapInterface):
       @tailrec
       def inner(heap1: List[Node], heap2: List[Node], melded: List[Node]): Boolean =
         if isEmpty(melded) && isEmpty(heap1) && isEmpty(heap2) then true
-        else if findMin(melded) == findMin(heap1) then inner(deleteMin(heap1), heap2, deleteMin(melded))
-        else if findMin(melded) == findMin(heap2) then inner(heap1, deleteMin(heap2), deleteMin(melded))
+        else if !isEmpty(heap1) && findMin(melded) == findMin(heap1) then inner(deleteMin(heap1), heap2, deleteMin(melded))
+        else if !isEmpty(heap2) && findMin(melded) == findMin(heap2) then inner(heap1, deleteMin(heap2), deleteMin(melded))
         else false
 
       inner(heap1, heap2, meld(heap1, heap2))
@@ -144,3 +146,4 @@ trait HeapProperties(val heapInterface: HeapInterface):
   given Arbitrary[List[Node]] = Arbitrary(generatedHeap)
 
 end HeapProperties
+
